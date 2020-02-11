@@ -41,8 +41,4 @@ public abstract class Context<T> implements Function<String, String>{
 		state = state.apply(input, this);
 		return output();
 	}
-	
-	public void log(String info) {
-		System.out.println(info);
-	}
 }

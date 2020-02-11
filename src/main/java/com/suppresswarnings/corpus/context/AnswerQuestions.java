@@ -33,7 +33,6 @@ public class AnswerQuestions extends Context<CorpusEngine> {
 	};
 	
 	State<Context<CorpusEngine>> init = (t,  u) -> {
-		log(" init AnswerQuestions for " + userid);
 		u.output("（你进入了回答问题状态）");
 		return this.question;
 	};

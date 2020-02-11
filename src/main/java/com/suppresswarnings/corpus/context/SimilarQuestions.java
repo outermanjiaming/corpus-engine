@@ -33,8 +33,7 @@ public class SimilarQuestions extends Context<CorpusEngine> {
 	};
 	
 	State<Context<CorpusEngine>> init = (t,  u) -> {
-		log(" init SimilarQuestions for " + userid);
-		u.output("（你进入了同义句问题状态）");
+		u.output("（你进入了回复同义句状态）");
 		return this.question;
 	};
 	

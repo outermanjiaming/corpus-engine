@@ -34,6 +34,7 @@ public class DemoTest {
 		engine.input("33", CorpusEngine.Action.SimilarQuestions);
 		engine.input("33", "你叫什么名字？");
 		engine.input("33", "你的名字是什么？");
+		engine.shutdown();
 	}
 	
 }

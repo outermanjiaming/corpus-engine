@@ -29,8 +29,7 @@ public class ServerFirstQAs extends Context<CorpusEngine> {
 	};
 
 	State<Context<CorpusEngine>> init = (t, u) -> {
-		log(" init ServerFirstQAs for " + userid);
-		u.output("（你进入了ServerFirstQAs状态）");
+		u.output("（你进入了服务端提问状态）");
 		q = u.handler().nextQ(userid);
 		u.output(q);
 		return this.sqa;

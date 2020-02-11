@@ -1,23 +1,18 @@
 package com.suppresswarnings.corpus.engine;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.suppresswarnings.corpus.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.suppresswarnings.corpus.Context;
-import com.suppresswarnings.corpus.ContextFactory;
-import com.suppresswarnings.corpus.State;
 import com.suppresswarnings.corpus.context.AnswerQuestions;
 import com.suppresswarnings.corpus.context.ServerFirstQAs;
 import com.suppresswarnings.corpus.context.SimilarQuestions;
-import com.suppresswarnings.osgi.leveldb.LevelDB;
-import com.suppresswarnings.osgi.leveldb.LevelDBImpl;
+import com.leveldb.LevelDBImpl;
 
 public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	String delimiter = "/";
@@ -28,7 +23,7 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	 * @author lijiaming
 	 *
 	 */
-	public static interface Action {
+	public interface Action {
 		int ActionLength = 3;
 		String ServerFirstQAs   = "/S1";
 		String AnswerQuestions  = "/AQ";
@@ -40,13 +35,19 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	Map<String, Context<?>> contexts = new ConcurrentHashMap<>();
 	PluginEngine pluginEngine = new PluginEngine();
 	AtomicInteger increment = new AtomicInteger(0);
-	String index = "Index";
+	String ID = "Index";
+	String QA = "Answer";
+	String SM = "Similar";
+	String CNT = "Count";
+
 	Random random = new Random();
-	LevelDB userDB = new LevelDBImpl("user");
-	LevelDB answerDB = new LevelDBImpl("answer");
-	LevelDB similarDB = new LevelDBImpl("similar");
-	LevelDB questionDB = new LevelDBImpl("question");
-	
+
+	AnyDB userDB = new LevelDBImpl("user");
+	AnyDB answerDB = new LevelDBImpl("answer");
+	AnyDB similarDB = new LevelDBImpl("similar");
+	AnyDB questionDB = new LevelDBImpl("question");
+	AnyDB logsDB = new LevelDBImpl("logs");
+
 	public Context<CorpusEngine> getInstance(String userid, String text) {
 		String action = text.length() < Action.ActionLength ? text : text.substring(0, Action.ActionLength);
 		if(action.startsWith(delimiter)) {
@@ -77,10 +78,10 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		return output;
 	}
 
-	public void log(String info) {
-		//logger.info(info);
-		System.out.println(info);
+	public void info(String info) {
+		logger.info(info);
 	}
+
 	public int random(int bound) {
 		return random.nextInt(bound);
 	}
@@ -91,9 +92,9 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	 * @param answer
 	 */
 	public void saveQA(String userid, String question, String answer) {
-		log(userid+ " Q:" + question);
-		log(userid+ " A:" + answer);
-		answerDB.put(question, answer);
+		info(userid+ " Q:" + question);
+		info(userid+ " A:" + answer);
+		answerDB.put(joinKey(QA, question), answer);
 		String answerK = joinKey("Question", question, "Answer", answer);
 		String exist = answerDB.get(answerK);
 		String value = "1";
@@ -107,15 +108,15 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	}
 	
 	public String getAnswer(String question) {
-		return answerDB.get(question);
+		return answerDB.get(joinKey(QA, question));
 	}
 	
 	public String getSimilar(String question) {
-		return similarDB.get(question);
+		return similarDB.get(joinKey(SM, question));
 	}
 	
 	public String countQuestion(String question) {
-		return questionDB.get(question);
+		return questionDB.get(joinKey(CNT, question));
 	}
 	
 	/**
@@ -125,9 +126,9 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	 * @param similar
 	 */
 	public void saveQS(String userid, String question, String similar) {
-		log(userid+ " Q:" + question);
-		log(userid+ " S:" + similar);
-		similarDB.put(question, similar);
+		info(userid+ " Q:" + question);
+		info(userid+ " S:" + similar);
+		similarDB.put(joinKey(SM, question), similar);
 		String similarK = joinKey("Question", question, "Similar", similar);
 		String exist = similarDB.get(similarK);
 		String value = "1";
@@ -156,19 +157,38 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 			value = String.valueOf(Long.valueOf(exist) + 1);
 		}
 		//for statistic
-		questionDB.put(question, value);
+		questionDB.put(joinKey(CNT, question), value);
 		//for user
-		userDB.put(joinKey("User", userid, indexKey()), question);
+		userDB.put(joinKey(userid, question), question);
+		userDB.put(serialKey(userid), question);
 	}
 
+	public void log(String info) {
+		logsDB.put(indexKey(), info);
+	}
+
+	/**
+	 * Index/1581393663212/9
+	 * @return
+	 */
 	public String indexKey() {
 		return String.join(delimiter, "Index", String.valueOf(System.currentTimeMillis()), String.valueOf(increment.incrementAndGet()));
 	}
-	
+
+	/**
+	 * Serial/你叫什么名字？/When/1581393454760
+	 * @param key
+	 * @return
+	 */
 	public String serialKey(String key) {
 		return String.join(delimiter, "Serial", key, "When", String.valueOf(System.currentTimeMillis()));
 	}
-	
+
+	/**
+	 * 组合多个key
+	 * @param args
+	 * @return
+	 */
 	public String joinKey(String ...args) {
 		return String.join(delimiter, args);
 	}
@@ -185,13 +205,12 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		String nextK = joinKey("Next", userid);
 		String next = userDB.get(nextK);
 		if(isNull(next)) {
-			next = index;
+			next = ID;
 		}
 		String head = next;
-		log("using head: " + head);
 		AtomicReference<String> key = new AtomicReference<>();
 		AtomicReference<String> value = new AtomicReference<>();
-		questionDB.page(index, head, null, 2, (k,v)->{
+		questionDB.page(ID, head, null, 2, (k, v)->{
 			key.set(k);
 			value.set(v);
 		});
@@ -199,31 +218,70 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 			userDB.put(nextK, key.get());
 			return value.get();
 		} else {
-			return "None";
+			return "";
 		}
 	}
-	
+
+	/**
+	 * 返回用户的所有问题数据
+	 * @param pages
+	 * @param userid
+	 * @return
+	 */
+	public Pages<String> userQ(Pages<String> pages, String userid) {
+		List<String> data = new ArrayList<>();
+		AtomicReference<String> key = new AtomicReference<>();
+		AtomicReference<String> value = new AtomicReference<>();
+		String head = userid;
+		if(isNull(pages.getCurrent())) {
+			pages.setCurrent(head);
+		}
+		userDB.page(head, pages.getCurrent(), null, pages.getSize(), (k,v)->{
+			key.set(k);
+			value.set(v);
+			data.add(v);
+		});
+		return pages.update(data, key.get());
+	}
+
+	/**
+	 * 释放资源
+	 */
+	public void shutdown() {
+		questionDB.close();
+		similarDB.close();
+		answerDB.close();
+		userDB.close();
+	}
+
+	/**
+	 * 展示所有数据 TODO 图形化展示分页数据
+	 */
 	public void display() {
 		questionDB.list("0", Integer.MAX_VALUE, (k,v)->{
-			log("questionDB : " + k + " = " + v);
+			info("questionDB : " + k + " = " + v);
 		});
 		
 		answerDB.list("0", Integer.MAX_VALUE, (k,v)->{
-			log("answerDB : " + k + " = " + v);
+			info("answerDB : " + k + " = " + v);
 		});
 		
 		similarDB.list("0", Integer.MAX_VALUE, (k,v)->{
-			log("similarDB : " + k + " = " + v);
+			info("similarDB : " + k + " = " + v);
 		});
 		
 		userDB.list("0", Integer.MAX_VALUE, (k,v)->{
-			log("userDB : " + k + " = " + v);
+			info("userDB : " + k + " = " + v);
 		});
 	}
 
 	public static void main(String[] args) {
+		final String format = "%1$tY %1$tm %1$td %1$tH:%1$tM:%1$tS|%2$s %5$s%6$s%n";
+		final String key = "java.util.logging.SimpleFormatter.format";
+		System.setProperty(key, format);
 		CorpusEngine engine = new CorpusEngine();
-		engine.input("12", CorpusEngine.Action.ServerFirstQAs);
+		String output = engine.input("12", CorpusEngine.Action.ServerFirstQAs);
+		System.out.println("////////"+output);
 		engine.input("12", "不知道");
 		engine.input("12", "我母鸡");
 		engine.input("12", "干啥呢");
@@ -236,6 +294,12 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		engine.input("33", CorpusEngine.Action.SimilarQuestions);
 		engine.input("33", "你叫什么名字？");
 		engine.input("33", "你的名字是什么？");
+		Pages<String> pages = new Pages<>();
+		pages.setSize(2);
+		Pages<String> userData = engine.userQ(pages, "21");
+		System.out.println(userData.toString());
+		System.out.println(userData.getData());
 		engine.display();
+		engine.shutdown();
 	}
 }

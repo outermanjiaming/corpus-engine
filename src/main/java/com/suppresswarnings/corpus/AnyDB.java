@@ -1,9 +1,9 @@
-package com.suppresswarnings.osgi.leveldb;
+package com.suppresswarnings.corpus;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-public interface LevelDB {
+public interface AnyDB {
 	public int NO = 0;
 	public int OK = 1;
 	public int FAIL = 400;

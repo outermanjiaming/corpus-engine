@@ -103,7 +103,7 @@ public class Table {
 				// !!! return a iterator of Block
 				iter = block.NewIterator(table.rep_.options.comparator);
 				if (cache_handle == null) {
-					iter.RegisterCleanup(null, block, null); // no need
+					iter.RegisterCleanup(new ReleaseBlockFunction(), block, null); //TODO lijiaming
 				}
 				// release the handle from the cache
 				else {

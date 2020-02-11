@@ -1,8 +1,9 @@
-package com.suppresswarnings.osgi.leveldb;
+package com.leveldb;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
+import com.suppresswarnings.corpus.AnyDB;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -14,7 +15,7 @@ import com.leveldb.common.options.Options;
 import com.leveldb.common.options.ReadOptions;
 import com.leveldb.common.options.WriteOptions;
 
-public class LevelDBImpl implements LevelDB {
+public class LevelDBImpl implements AnyDB {
 	Log logger = LogFactory.getLog(LevelDBImpl.class);
 	ReadOptions roption = new ReadOptions();
 	WriteOptions woption = new WriteOptions();
@@ -33,13 +34,17 @@ public class LevelDBImpl implements LevelDB {
 	}
 	
 	public LevelDBImpl(String leveldb){
-		init(home() + leveldb, true);
-		logger.info("[leveldb] created.");
+		int init = init(home() + leveldb, true);
+		if(OK == init) logger.info("[leveldb] created.");
+		else {
+			logger.error("[leveldb] error while init, shutdown now.");
+			System.exit(-1);
+		}
 	}
 	
 	public String home() {
 		String CE_HOME = System.getenv("CE_HOME");
-		return CE_HOME == null ? "./" : CE_HOME;
+		return CE_HOME == null ? "../" : CE_HOME;
 	}
 	
 	@Override
@@ -110,13 +115,13 @@ public class LevelDBImpl implements LevelDB {
 
 	@Override
 	public void close() {
-		logger.info("[leveldb] close.");
+		logger.info("[leveldb] close " + dbname_);
 		if(db_ != null) {
 			db_.Close();
-			logger.info("[leveldb] closed.");
+			logger.info("[leveldb] closed " + dbname_);
 		}
 		inited = false;
-		logger.info("[leveldb] close done.");
+		logger.info("[leveldb] closed already " + dbname_);
 	}
 
 	@Override
