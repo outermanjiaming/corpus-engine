@@ -41,13 +41,16 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	String CNT = "Count";
 
 	Random random = new Random();
-
+	WorkFlow workFlow = new WorkFlow(this);
 	AnyDB userDB = new LevelDBImpl("user");
 	AnyDB answerDB = new LevelDBImpl("answer");
 	AnyDB similarDB = new LevelDBImpl("similar");
 	AnyDB questionDB = new LevelDBImpl("question");
 	AnyDB logsDB = new LevelDBImpl("logs");
 
+	public WorkFlow getWorkFlow() {
+		return workFlow;
+	}
 	public Context<CorpusEngine> getInstance(String userid, String text) {
 		String action = text.length() < Action.ActionLength ? text : text.substring(0, Action.ActionLength);
 		if(action.startsWith(delimiter)) {
@@ -252,6 +255,7 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		similarDB.close();
 		answerDB.close();
 		userDB.close();
+		workFlow.close();
 	}
 
 	/**
@@ -275,31 +279,39 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		});
 	}
 
-	public static void main(String[] args) {
-		final String format = "%1$tY %1$tm %1$td %1$tH:%1$tM:%1$tS|%2$s %5$s%6$s%n";
-		final String key = "java.util.logging.SimpleFormatter.format";
-		System.setProperty(key, format);
-		CorpusEngine engine = new CorpusEngine();
-		String output = engine.input("12", CorpusEngine.Action.ServerFirstQAs);
-		System.out.println("////////"+output);
-		engine.input("12", "不知道");
-		engine.input("12", "我母鸡");
-		engine.input("12", "干啥呢");
-		engine.input("12", "是谁啊");
-		engine.input("21", CorpusEngine.Action.AnswerQuestions);
-		engine.input("21", "你叫什么名字？");
-		engine.input("21", "我叫李嘉铭");
-		engine.input("21", "你来自哪里？");
-		engine.input("21", "中国");
-		engine.input("33", CorpusEngine.Action.SimilarQuestions);
-		engine.input("33", "你叫什么名字？");
-		engine.input("33", "你的名字是什么？");
-		Pages<String> pages = new Pages<>();
-		pages.setSize(2);
-		Pages<String> userData = engine.userQ(pages, "21");
-		System.out.println(userData.toString());
-		System.out.println(userData.getData());
-		engine.display();
-		engine.shutdown();
-	}
+//	public static void main(String[] args) {
+//		final String format = "%1$tY %1$tm %1$td %1$tH:%1$tM:%1$tS|%2$s %5$s%6$s%n";
+//		final String key = "java.util.logging.SimpleFormatter.format";
+//		System.setProperty(key, format);
+//		CorpusEngine engine = new CorpusEngine();
+//		String output = engine.input("12", CorpusEngine.Action.ServerFirstQAs);
+//		System.out.println("////////"+output);
+//		engine.input("12", "不知道");
+//		engine.input("12", "我母鸡");
+//		engine.input("12", "干啥呢");
+//		engine.input("12", "是谁啊");
+//		engine.input("21", CorpusEngine.Action.AnswerQuestions);
+//		engine.input("21", "你叫什么名字？");
+//		engine.input("21", "我叫李嘉铭");
+//		engine.input("21", "你来自哪里？");
+//		engine.input("21", "中国");
+//		engine.input("33", CorpusEngine.Action.SimilarQuestions);
+//		engine.input("33", "你叫什么名字？");
+//		engine.input("33", "你的名字是什么？");
+//		Pages<String> pages = new Pages<>();
+//		pages.setSize(2);
+//		Pages<String> userData = engine.userQ(pages, "21");
+//		System.out.println(userData.toString());
+//		System.out.println(userData.getData());
+//
+//		ReplyTask replyDBTask = new ReplyDBTask(engine, "21", "你在干啥呢");
+//		System.out.println(replyDBTask);
+//		String question = engine.getWorkFlow().ask(replyDBTask);
+//		System.out.println(question);
+//		ReplyTask task = engine.getWorkFlow().pollOrNull();
+//		engine.getWorkFlow().reply(task, "33", "正在吃饭");
+//
+//		engine.display();
+//		engine.shutdown();
+//	}
 }

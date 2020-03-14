@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.suppresswarnings</groupId>
 	<artifactId>corpus-engine</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<name>Corpus Engine</name>
 	<description>Process Corpus Data</description>
 	<dependencies>

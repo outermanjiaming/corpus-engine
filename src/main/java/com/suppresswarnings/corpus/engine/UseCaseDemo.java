@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.Scanner;
 
 public class UseCaseDemo {
-	public static void main(String[] args) {
-		feed();
-	}
+//	public static void main(String[] args) {
+//		feed();
+//	}
 	
 	public static void auto() {
 		Scanner scanner = new Scanner(System.in);

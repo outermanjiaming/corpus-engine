@@ -4,6 +4,8 @@ import com.suppresswarnings.corpus.engine.CorpusEngine;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -11,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class WorkFlow {
+public class WorkFlow implements Closeable {
     String delimiter = "/";
     CorpusEngine corpusEngine;
     LinkedBlockingQueue<ReplyTask> queue;
@@ -24,6 +26,7 @@ public class WorkFlow {
     public WorkFlow(CorpusEngine corpusEngine) {
         this.corpusEngine = corpusEngine;
         this.queue = new LinkedBlockingQueue<>(10000);
+        this.cache = new ConcurrentHashMap<>();
         this.locks = new ConcurrentHashMap<>();
         this.conditions = new ConcurrentHashMap<>();
     }
@@ -36,7 +39,7 @@ public class WorkFlow {
     public String ask(ReplyTask replyTask) {
         String answer = corpusEngine.getAnswer(replyTask.question());
         if(!corpusEngine.isNull(answer)) {
-            return answer;
+            logger.info("already knows the answer");
         }
         String id = id(replyTask);
         logger.info("id = " + id);
@@ -90,6 +93,9 @@ public class WorkFlow {
      * @param answer
      */
     public void reply(ReplyTask replyTask, String userid, String answer) {
+        if(replyTask == null) {
+            return;
+        }
         replyTask.reply(userid, answer);
         String id = id(replyTask);
         ReplyTask task = cache.remove(id);
@@ -107,5 +113,24 @@ public class WorkFlow {
 
     public String id(ReplyTask replyTask) {
         return String.join(delimiter, replyTask.openid(), replyTask.question());
+    }
+
+    @Override
+    public void close() {
+        this.locks.forEach((id, lock) ->{
+            try {
+                lock.lock();
+                Condition con = conditions.get(id);
+                if(con != null) {
+                    con.signalAll();
+                }
+            } finally {
+                lock.unlock();
+            }
+        });
+        this.queue.clear();
+        this.cache.clear();
+        this.locks.clear();
+        this.conditions.clear();
     }
 }

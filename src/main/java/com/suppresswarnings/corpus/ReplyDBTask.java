@@ -59,4 +59,14 @@ public class ReplyDBTask implements ReplyTask {
         logger.info("It doesn't matter whether if it was " + finished());
         corpusEngine.saveQA(userid, question(), answer);
     }
+
+    @Override
+    public String toString() {
+        return "ReplyDBTask{" +
+                "openid='" + openid + '\'' +
+                ", question='" + question + '\'' +
+                ", answer='" + answer + '\'' +
+                ", finished=" + finished +
+                '}';
+    }
 }
