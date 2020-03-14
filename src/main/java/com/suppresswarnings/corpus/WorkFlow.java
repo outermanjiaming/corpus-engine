@@ -6,6 +6,7 @@ import org.apache.commons.logging.LogFactory;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -13,7 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class WorkFlow {
     String delimiter = "/";
     CorpusEngine corpusEngine;
-    ConcurrentLinkedQueue<ReplyTask> queue;
+    LinkedBlockingQueue<ReplyTask> queue;
     ConcurrentHashMap<String, ReplyTask> cache;
     ConcurrentHashMap<String, ReentrantLock> locks;
     ConcurrentHashMap<String, Condition> conditions;
@@ -22,7 +23,7 @@ public class WorkFlow {
     }
     public WorkFlow(CorpusEngine corpusEngine) {
         this.corpusEngine = corpusEngine;
-        this.queue = new ConcurrentLinkedQueue<>();
+        this.queue = new LinkedBlockingQueue<>(10000);
         this.locks = new ConcurrentHashMap<>();
         this.conditions = new ConcurrentHashMap<>();
     }
@@ -39,13 +40,13 @@ public class WorkFlow {
         }
         String id = id(replyTask);
         logger.info("id = " + id);
-        queue.add(replyTask);
-        logger.info(id + " added to queue");
         cache.putIfAbsent(id, replyTask);
         logger.info(id + " put to cache");
         ReentrantLock lock = locks.computeIfAbsent(id, key -> new ReentrantLock());
         logger.info("create lock for " + id);
         try {
+            queue.add(replyTask);
+            logger.info(id + " added to queue");
             logger.info("try to lock for " + id);
             lock.tryLock(400, TimeUnit.MILLISECONDS);
             logger.info(id + " locked");
@@ -74,8 +75,12 @@ public class WorkFlow {
         return corpusEngine.getAnswer(replyTask.question());
     }
 
-    public ReplyTask take(){
-        return queue.poll();
+    public ReplyTask pollOrNull(){
+        try {
+            return queue.poll(400, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            return null;
+        }
     }
 
     /**
