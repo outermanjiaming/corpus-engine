@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.suppresswarnings.corpus.*;
+import com.suppresswarnings.corpus.context.ReplyContext;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -15,7 +16,7 @@ import com.suppresswarnings.corpus.context.SimilarQuestions;
 import com.leveldb.LevelDBImpl;
 
 public class CorpusEngine implements ContextFactory<CorpusEngine> {
-	String delimiter = "/";
+	public static final String delimiter = "/";
 	Log logger = LogFactory.getLog(CorpusEngine.class);
 	
 	/**
@@ -26,13 +27,16 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	public interface Action {
 		int ActionLength = 3;
 		String ServerFirstQAs   = "/S1";
+		String ReplyQuestions   = "/RQ";
 		String AnswerQuestions  = "/AQ";
 		String SimilarQuestions = "/SQ";
 		String Plugins          = "/PL";
+		String DEFAULT          = "/DF";
 	}
 	
-	Map<String, State<Context<?>>> stateMachine = new HashMap<>();
-	Map<String, Context<?>> contexts = new ConcurrentHashMap<>();
+	Map<String, State<Context<CorpusEngine>>> stateMachine = new HashMap<>();
+	Map<String, Context<CorpusEngine>> contexts = new ConcurrentHashMap<>();
+	Map<String, ContextFactory<CorpusEngine>> factories = new ConcurrentHashMap<>();
 	PluginEngine pluginEngine = new PluginEngine();
 	AtomicInteger increment = new AtomicInteger(0);
 	String ID = "Index";
@@ -48,15 +52,31 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	AnyDB questionDB = new LevelDBImpl("question");
 	AnyDB logsDB = new LevelDBImpl("logs");
 
+	public boolean register(String action, ContextFactory<CorpusEngine> contextFactory) {
+		if(isNull(action) || action.length() != Action.ActionLength || !action.startsWith(delimiter)) {
+			return false;
+		}
+		if(factories.containsKey(action)) {
+			return false;
+		}
+		factories.put(action, contextFactory);
+		return true;
+	}
+
+	public void unregister(String action) {
+		factories.remove(action);
+	}
 	public WorkFlow getWorkFlow() {
 		return workFlow;
 	}
 	public Context<CorpusEngine> getInstance(String userid, String text) {
-		String action = text.length() < Action.ActionLength ? text : text.substring(0, Action.ActionLength);
+		String action = (text.length() < Action.ActionLength) ? text : text.substring(0, Action.ActionLength);
 		if(action.startsWith(delimiter)) {
 			switch(action) {
 				case Action.ServerFirstQAs:
 					return new ServerFirstQAs(this, userid);
+				case Action.ReplyQuestions:
+					return new ReplyContext(this, userid);
 				case Action.AnswerQuestions:
 					return new AnswerQuestions(this, userid);
 				case Action.SimilarQuestions:
@@ -64,21 +84,39 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 				case Action.Plugins:
 					return pluginEngine.getInstance(userid, text);
 				default:
-					return null;
+					if(factories.containsKey(action)) {
+						//this means registered factory
+						ContextFactory<CorpusEngine> factory = factories.get(action);
+						return factory.getInstance(userid, text);
+					} else if(factories.containsKey(Action.DEFAULT)) {
+						//this means registered default factory
+						ContextFactory<CorpusEngine> factory = factories.get(Action.DEFAULT);
+						return factory.getInstance(userid, text);
+					} else if(contexts.containsKey(userid)) {
+						return contexts.get(userid);
+					} else {
+						//this means none registered factory
+						return new ReplyContext(this, userid);
+					}
 			}
 		} else {
-			return null;
+			if(contexts.containsKey(userid)) {
+				return contexts.get(userid);
+			} else if(factories.containsKey(Action.DEFAULT)) {
+				//this means registered default factory
+				ContextFactory<CorpusEngine> factory = factories.get(Action.DEFAULT);
+				return factory.getInstance(userid, text);
+			} else {
+				//this means none registered factory
+				return new ReplyContext(this, userid);
+			}
 		}
 	}
 	
 	public String input(String id, String text) {
-		Context<?> trans = this.getInstance(id, text);
-		if(trans != null) {
-			contexts.put(id, trans);
-		}
-		Context<?> ctx = contexts.get(id);
-		String output = ctx.apply(text);
-		return output;
+		Context<CorpusEngine> trans = this.getInstance(id, text);
+		contexts.put(id, trans);
+		return trans.apply(text);
 	}
 
 	public void info(String info) {

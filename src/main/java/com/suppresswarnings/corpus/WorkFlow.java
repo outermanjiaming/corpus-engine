@@ -15,8 +15,10 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class WorkFlow implements Closeable {
     String delimiter = "/";
+    String waiting   = "waiting";
     CorpusEngine corpusEngine;
     LinkedBlockingQueue<ReplyTask> queue;
+    LinkedBlockingQueue<ReplyTask> worker;
     ConcurrentHashMap<String, ReplyTask> cache;
     ConcurrentHashMap<String, ReentrantLock> locks;
     ConcurrentHashMap<String, Condition> conditions;
@@ -26,6 +28,7 @@ public class WorkFlow implements Closeable {
     public WorkFlow(CorpusEngine corpusEngine) {
         this.corpusEngine = corpusEngine;
         this.queue = new LinkedBlockingQueue<>(10000);
+        this.worker= new LinkedBlockingQueue<>(1000);
         this.cache = new ConcurrentHashMap<>();
         this.locks = new ConcurrentHashMap<>();
         this.conditions = new ConcurrentHashMap<>();
@@ -50,6 +53,7 @@ public class WorkFlow implements Closeable {
         try {
             queue.add(replyTask);
             logger.info(id + " added to queue");
+            waiter(replyTask);
             logger.info("try to lock for " + id);
             lock.tryLock(400, TimeUnit.MILLISECONDS);
             logger.info(id + " locked");
@@ -61,10 +65,10 @@ public class WorkFlow implements Closeable {
             cache.remove(id);
             logger.info(id + " removed");
             //ok lets go
-        } catch (InterruptedException ex){
+        } catch (Exception ex){
             logger.info(id + " was waked up, and remove from cache");
             cache.remove(id);
-            logger.info(id + " removed");
+            logger.info(id + " removed", ex);
         } finally {
             lock.unlock();
         }
@@ -76,6 +80,31 @@ public class WorkFlow implements Closeable {
         replyTask.done();
         logger.info(id + " was not finished yet, try to get answer from DB");
         return corpusEngine.getAnswer(replyTask.question());
+    }
+
+    public void waiter(ReplyTask replyTask) {
+        try {
+            logger.info("ask for a waiter");
+            ReplyTask task = worker.poll();
+            if(task != null) {
+                logger.info("calling the waiter");
+                task.reply(replyTask.openid(), replyTask.question());
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    public void waiting(ReplyTask replyTask) {
+        String id = id(replyTask);
+        cache.computeIfAbsent(id, key -> {
+            worker.add(replyTask);
+            return replyTask;
+        });
+    }
+
+    public void working(ReplyTask replyTask) {
+        String id = id(replyTask);
+        cache.remove(id);
     }
 
     public ReplyTask pollOrNull(){
@@ -129,6 +158,7 @@ public class WorkFlow implements Closeable {
             }
         });
         this.queue.clear();
+        this.worker.clear();
         this.cache.clear();
         this.locks.clear();
         this.conditions.clear();

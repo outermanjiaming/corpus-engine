@@ -30,6 +30,9 @@ public abstract class Context<T> implements Function<String, String>{
 		return out;
 	}
 	public void output(String output) {
+		if(output == null) {
+			return;
+		}
 		if(this.buffer.length() > 0) {
 			this.buffer.append(System.lineSeparator());
 		}

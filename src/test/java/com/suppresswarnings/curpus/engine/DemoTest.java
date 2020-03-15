@@ -19,7 +19,14 @@ public class DemoTest {
 		String json = gson.toJson(map);
 		System.out.println(json);
 	}
-	
+
+	@Test
+	public void testNull() {
+		StringBuffer sb = new StringBuffer();
+		String str = null;
+		sb.append(str);
+		System.out.println(sb.toString());
+	}
 	@Test
 	public void testEngine() {
 		CorpusEngine engine = new CorpusEngine();

@@ -53,6 +53,10 @@ public class ReplyDBTask implements ReplyTask {
         this.finished = true;
     }
 
+    public CorpusEngine engine() {
+        return corpusEngine;
+    }
+
     @Override
     public void reply(String userid, String answer) {
         this.answer = answer;
