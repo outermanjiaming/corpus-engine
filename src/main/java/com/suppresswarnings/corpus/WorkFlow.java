@@ -6,10 +6,7 @@ import org.apache.commons.logging.LogFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,8 +14,8 @@ public class WorkFlow implements Closeable {
     String delimiter = "/";
     String waiting   = "waiting";
     CorpusEngine corpusEngine;
-    LinkedBlockingQueue<ReplyTask> queue;
-    LinkedBlockingQueue<ReplyTask> worker;
+    LinkedBlockingDeque<ReplyTask> queue;
+    LinkedBlockingDeque<ReplyTask> worker;
     ConcurrentHashMap<String, ReplyTask> cache;
     ConcurrentHashMap<String, ReentrantLock> locks;
     ConcurrentHashMap<String, Condition> conditions;
@@ -27,8 +24,8 @@ public class WorkFlow implements Closeable {
     }
     public WorkFlow(CorpusEngine corpusEngine) {
         this.corpusEngine = corpusEngine;
-        this.queue = new LinkedBlockingQueue<>(10000);
-        this.worker= new LinkedBlockingQueue<>(1000);
+        this.queue = new LinkedBlockingDeque<>(10000);
+        this.worker= new LinkedBlockingDeque<>(1000);
         this.cache = new ConcurrentHashMap<>();
         this.locks = new ConcurrentHashMap<>();
         this.conditions = new ConcurrentHashMap<>();
@@ -51,7 +48,7 @@ public class WorkFlow implements Closeable {
         ReentrantLock lock = locks.computeIfAbsent(id, key -> new ReentrantLock());
         logger.info("create lock for " + id);
         try {
-            queue.add(replyTask);
+            queue.addLast(replyTask);
             logger.info(id + " added to queue");
             waiter(replyTask);
             logger.info("try to lock for " + id);
@@ -82,18 +79,30 @@ public class WorkFlow implements Closeable {
         return corpusEngine.getAnswer(replyTask.question());
     }
 
+    /**
+     * ask for a waiter if there is one available
+     * @param replyTask
+     */
     public void waiter(ReplyTask replyTask) {
         try {
             logger.info("ask for a waiter");
-            ReplyTask task = worker.poll();
+            ReplyTask task = worker.peekLast();
             if(task != null) {
-                logger.info("calling the waiter");
-                task.reply(replyTask.openid(), replyTask.question());
+                String id = id(task);
+                logger.info("checking the waiter still waiting " + id);
+                if(cache.containsKey(id)) {
+                    logger.info("calling the waiter " + id);
+                    task.reply(replyTask.openid(), replyTask.question());
+                }
             }
         } catch (Exception ignored) {
         }
     }
 
+    /**
+     * worker waiting for new message coming in
+     * @param replyTask
+     */
     public void waiting(ReplyTask replyTask) {
         String id = id(replyTask);
         cache.computeIfAbsent(id, key -> {
@@ -102,14 +111,22 @@ public class WorkFlow implements Closeable {
         });
     }
 
+    /**
+     * start working, no more waiting
+     * @param replyTask
+     */
     public void working(ReplyTask replyTask) {
         String id = id(replyTask);
         cache.remove(id);
     }
 
+    /**
+     * poll the latest one
+     * @return
+     */
     public ReplyTask pollOrNull(){
         try {
-            return queue.poll(400, TimeUnit.MILLISECONDS);
+            return queue.pollLast(400, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             return null;
         }
