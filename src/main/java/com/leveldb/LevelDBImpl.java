@@ -38,7 +38,7 @@ public class LevelDBImpl implements AnyDB {
 		if(OK == init) logger.info("[leveldb] created.");
 		else {
 			logger.error("[leveldb] error while init, shutdown now.");
-			System.exit(-1);
+			close();
 		}
 	}
 	

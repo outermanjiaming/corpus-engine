@@ -3,6 +3,7 @@ package com.suppresswarnings.curpus.engine;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.suppresswarnings.corpus.Shell;
 import org.junit.Test;
 
 import com.google.gson.Gson;
@@ -42,6 +43,12 @@ public class DemoTest {
 		engine.input("33", "你叫什么名字？");
 		engine.input("33", "你的名字是什么？");
 		engine.shutdown();
+	}
+
+	@Test
+	public void testShell() {
+		//Shell shell = new Shell();
+		//new Thread(()->shell.start(9091, null)).start();
 	}
 	
 }

@@ -1,19 +1,18 @@
 package com.suppresswarnings.corpus.engine;
 
+import com.leveldb.LevelDBImpl;
+import com.suppresswarnings.corpus.*;
+import com.suppresswarnings.corpus.context.AnswerQuestions;
+import com.suppresswarnings.corpus.context.ReplyContext;
+import com.suppresswarnings.corpus.context.ServerFirstQAs;
+import com.suppresswarnings.corpus.context.SimilarQuestions;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import com.suppresswarnings.corpus.*;
-import com.suppresswarnings.corpus.context.ReplyContext;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import com.suppresswarnings.corpus.context.AnswerQuestions;
-import com.suppresswarnings.corpus.context.ServerFirstQAs;
-import com.suppresswarnings.corpus.context.SimilarQuestions;
-import com.leveldb.LevelDBImpl;
 
 public class CorpusEngine implements ContextFactory<CorpusEngine> {
 	public static final String delimiter = "/";
@@ -74,13 +73,53 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		if(action.startsWith(delimiter)) {
 			switch(action) {
 				case Action.ServerFirstQAs:
-					return new ServerFirstQAs(this, userid);
+					return contexts.compute(userid, (k, v)->{
+						if(v == null) {
+							return new ServerFirstQAs(this, userid);
+						} else {
+							if(v instanceof ServerFirstQAs) {
+								return v;
+							} else {
+								return new ServerFirstQAs(this, userid);
+							}
+						}
+					});
 				case Action.ReplyQuestions:
-					return new ReplyContext(this, userid);
+					return contexts.compute(userid, (k, v)->{
+						if(v == null) {
+							return new ReplyContext(this, userid);
+						} else {
+							if(v instanceof ReplyContext) {
+								return v;
+							} else {
+								return new ReplyContext(this, userid);
+							}
+						}
+					});
 				case Action.AnswerQuestions:
-					return new AnswerQuestions(this, userid);
+					return contexts.compute(userid, (k, v)->{
+						if(v == null) {
+							return new AnswerQuestions(this, userid);
+						} else {
+							if(v instanceof AnswerQuestions) {
+								return v;
+							} else {
+								return new AnswerQuestions(this, userid);
+							}
+						}
+					});
 				case Action.SimilarQuestions:
-					return new SimilarQuestions(this, userid);
+					return contexts.compute(userid, (k, v)->{
+						if(v == null) {
+							return new SimilarQuestions(this, userid);
+						} else {
+							if(v instanceof SimilarQuestions) {
+								return v;
+							} else {
+								return new SimilarQuestions(this, userid);
+							}
+						}
+					});
 				case Action.Plugins:
 					return pluginEngine.getInstance(userid, text);
 				default:
@@ -140,7 +179,7 @@ public class CorpusEngine implements ContextFactory<CorpusEngine> {
 		String exist = answerDB.get(answerK);
 		String value = "1";
 		if(!isNull(exist)) {
-			value = String.valueOf(Long.valueOf(exist) + 1);
+			value = String.valueOf(Long.parseLong(exist) + 1);
 		}
 		//for statistic
 		answerDB.put(answerK, value);

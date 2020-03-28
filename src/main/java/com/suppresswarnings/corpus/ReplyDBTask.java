@@ -20,6 +20,7 @@ public class ReplyDBTask implements ReplyTask {
         this.openid = openid;
         this.question = question;
         this.finished = false;
+        this.timestamp = System.currentTimeMillis();
     }
 
     CorpusEngine corpusEngine;
@@ -27,6 +28,7 @@ public class ReplyDBTask implements ReplyTask {
     String question;
     String answer;
     transient boolean finished;
+    long timestamp;
 
     @Override
     public String openid() {
@@ -41,6 +43,17 @@ public class ReplyDBTask implements ReplyTask {
     @Override
     public String answer() {
         return answer;
+    }
+
+    @Override
+    public long timestamp() {
+        return timestamp;
+    }
+
+    @Override
+    public boolean expired() {
+        //save to DB never expired
+        return false;
     }
 
     @Override

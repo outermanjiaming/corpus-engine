@@ -7,6 +7,8 @@ public interface ReplyTask {
     String openid();
     String question();
     String answer();
+    long timestamp();
+    boolean expired();
     boolean finished();
     void done();
     void reply(String userid, String answer);
