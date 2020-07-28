@@ -118,6 +118,7 @@ public class WorkFlow implements Closeable {
     public void working(ReplyTask replyTask) {
         String id = id(replyTask);
         cache.remove(id);
+        worker.remove(replyTask);
     }
 
     /**
