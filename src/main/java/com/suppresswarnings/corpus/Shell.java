@@ -105,8 +105,9 @@ public class Shell {
                 String content = sb.toString();
                 sb.setLength(0);
                 if(handler != null && content.length() > 0) {
-                    String output = handler.input(openid, content);
-                    write(output, channel);
+                    ReplyTask task = new ReplyShellTask(this, handler, openid, content);
+                    String reply = handler.getWorkFlow().ask(task);
+                    write(reply, channel);
                 }
             } else {
                 sb.append(input.trim());
@@ -121,5 +122,13 @@ public class Shell {
         } catch (Exception e) {
             logger.error("fail to write", e);
         }
+    }
+
+    public void write(String content, String openid) {
+        selector.keys()
+                .stream()
+                .filter(key->openid.equals(key.attachment()))
+                .map(key->(SocketChannel) key.channel())
+                .forEach(channel->{ write(content, channel); });
     }
 }
