@@ -24,7 +24,7 @@
 			<version>1.2</version>
 		</dependency>
 		<dependency>
-			<version>4.12</version>
+			<version>4.13.1</version>
 			<artifactId>junit</artifactId>
 			<groupId>junit</groupId>
 		</dependency>
